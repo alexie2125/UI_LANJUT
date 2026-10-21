@@ -1,4 +1,14 @@
+
 <script setup>
+import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+
+import EventCard from '../components/event/EventCard.vue'
+import SearchBar from '../components/event/SearchBar.vue'
+import CategoryFilter from '../components/event/CategoryFilter.vue'
+
+const router = useRouter()
+
 const events = [
   {
     id: 1,
@@ -49,139 +59,119 @@ const events = [
     desc: 'An exclusive year-end conference for community leaders to formulate sustainable ecosystem development strategies.',
   },
 ]
+
+const searchQuery = ref('')
+const selectedCategory = ref('All')
+
+const categories = computed(() => [
+  'All',
+  ...new Set(events.map((event) => event.cat)),
+])
+
+const filteredEvents = computed(() => {
+  const keyword = searchQuery.value.trim().toLowerCase()
+
+  return events.filter((event) => {
+    const matchesCategory =
+      selectedCategory.value === 'All' ||
+      event.cat === selectedCategory.value
+
+    const searchableText = [
+      event.title,
+      event.desc,
+      event.date,
+      event.loc,
+      event.cat,
+    ]
+      .join(' ')
+      .toLowerCase()
+
+    const matchesSearch = searchableText.includes(keyword)
+
+    return matchesCategory && matchesSearch
+  })
+})
+
+function handleViewDetail(eventId) {
+  router.push(`/browse/events/${eventId}`)
+}
 </script>
 
 <template>
   <div class="event-list-page">
     <div class="header-section">
       <h2 class="section-title">Upcoming Events</h2>
-      <p class="section-desc">Discover workshops, seminars, tech meetups, and competitions near you.</p>
+      <p class="section-desc">
+        Discover workshops, seminars, tech meetups, and competitions near you.
+      </p>
     </div>
 
-    <!-- LAYOUT SYSTEM: ADAPTIVE GRID -->
-    <div class="event-grid">
-      <!-- VISUAL HIERARCHY: GROUPING & COMMON REGIONS -->
-      <div class="event-card" v-for="event in events" :key="event.id">
-        <div class="event-body">
-          <div class="event-meta">
-            <!-- LABEL CONTRAST: Recognition over Recall -->
-            <span class="event-date">{{ event.date }}</span>
-            <span class="event-category">{{ event.cat }}</span>
-          </div>
+    <SearchBar v-model="searchQuery" />
 
-          <h3 class="event-title">{{ event.title }}</h3>
-          <p class="event-loc">{{ event.loc }}</p>
-          <p class="event-desc">
-            {{ event.desc }}
-          </p>
+    <CategoryFilter
+      v-model="selectedCategory"
+      :categories="categories"
+    />
 
-          <div class="card-footer">
-            <router-link :to="`/browse/events/${event.id}`" class="btn-link"
-              >View Event Details &rarr;</router-link
-            >
-          </div>
-        </div>
-      </div>
+    <div v-if="filteredEvents.length > 0" class="event-grid">
+      <EventCard
+        v-for="event in filteredEvents"
+        :key="event.id"
+        :event="event"
+        @view-detail="handleViewDetail"
+      />
+    </div>
+
+    <div v-else class="empty-state">
+      <h3>No events found</h3>
+      <p>
+        No events match your search. Try another keyword or category.
+      </p>
     </div>
   </div>
 </template>
 
 <style scoped>
+.event-list-page {
+  width: 100%;
+}
+
 .header-section {
   margin-bottom: var(--space-8);
 }
+
 .section-title {
   font-size: 2.2rem;
   margin-bottom: var(--space-2);
 }
+
 .section-desc {
   color: var(--text-muted);
   font-size: 1.1rem;
 }
 
-/* ADAPTIVE GRID */
 .event-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: var(--space-6);
+  align-items: stretch;
 }
 
-/* COMMON REGIONS */
-.event-card {
-  background: white;
-  border-radius: var(--space-4);
-  border: 1px solid var(--border-color);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.02);
-  display: flex;
-  flex-direction: column;
-  transition:
-    transform 0.2s,
-    box-shadow 0.2s;
-}
-
-.event-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 25px rgba(0, 0, 0, 0.06);
-}
-
-/* PROXIMITY */
-.event-body {
-  padding: var(--space-6);
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.event-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-4);
-}
-
-.event-date {
-  background: rgba(102, 68, 255, 0.1);
-  color: var(--primary);
-  padding: var(--space-1) var(--space-2);
-  border-radius: 6px;
-  font-weight: 600;
-  font-size: 0.85rem;
-}
-
-.event-category {
+.empty-state {
+  padding: 40px 24px;
+  border: 1px dashed var(--border-color);
+  border-radius: 12px;
+  text-align: center;
   color: var(--text-muted);
-  font-size: 0.85rem;
-  font-weight: 500;
-  text-transform: uppercase;
-}
-.event-title {
-  margin-bottom: var(--space-2);
-  font-size: 1.4rem;
-}
-.event-loc {
-  color: var(--text-muted);
-  font-size: 0.95rem;
-  margin-bottom: var(--space-4);
-}
-.event-desc {
-  color: var(--text-muted);
-  line-height: 1.6;
-  font-size: 0.95rem;
-  margin-bottom: var(--space-6);
-  flex-grow: 1;
+  background: #ffffff;
 }
 
-.card-footer {
-  border-top: 1px solid var(--border-color);
-  padding-top: var(--space-4);
-}
-
-.btn-link {
+.empty-state h3 {
   color: var(--text-main);
-  font-weight: 600;
-  text-decoration: none;
+  margin-bottom: var(--space-2);
 }
-.btn-link:hover {
-  color: var(--primary);
+
+.empty-state p {
+  line-height: 1.6;
 }
 </style>
